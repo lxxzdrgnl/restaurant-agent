@@ -22,4 +22,4 @@ def test_render_trace_md_includes_each_node():
                  "reflector", "finalizer", "save_memory"):
         assert node in md
     assert "전주 객사" in md
-    assert "## Final" in md
+    assert "Final" in md  # "## 7. Final Recommendation" 포함

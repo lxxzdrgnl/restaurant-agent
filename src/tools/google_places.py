@@ -42,14 +42,19 @@ def search_google_places(
     # locationRestriction(hard) 사용 — locationBias는 weak이라 전국 단위 텍스트 매칭이
     # 들어오면 다른 도시 결과까지 섞임("전북대 중국집" 검색에 대전·대구·광주 식당이 들어오는 케이스).
     # restriction은 지정 반경 밖 결과를 API가 반환하지 않음.
+    # Google Places API의 textSearch + locationRestriction은 circle을 지원하지 않고
+    # rectangle만 받으므로 center±radius로 사각형 변환.
+    import math
+    lat_delta = radius_m / 111_000.0
+    lng_delta = radius_m / max(111_000.0 * math.cos(math.radians(lat)), 1.0)
     body: dict[str, Any] = {
         "textQuery": query,
         "languageCode": language_code,
         "includedType": included_type,
         "locationRestriction": {
-            "circle": {
-                "center": {"latitude": lat, "longitude": lng},
-                "radius": float(radius_m),
+            "rectangle": {
+                "low": {"latitude": lat - lat_delta, "longitude": lng - lng_delta},
+                "high": {"latitude": lat + lat_delta, "longitude": lng + lng_delta},
             }
         },
     }
@@ -73,6 +78,7 @@ def search_google_places(
 
     if resp.status_code >= 400:
         return {"error": "google_http_error", "status": resp.status_code,
+                "detail": resp.text[:300],
                 "results": [], "count": 0}
 
     places = resp.json().get("places", [])
