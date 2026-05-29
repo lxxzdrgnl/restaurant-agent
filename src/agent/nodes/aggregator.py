@@ -229,7 +229,7 @@ def aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
     excluded_by_recency = 0
     excluded_by_category = 0
     excluded_by_price = 0
-    excluded_by_mismatch = 0
+    mismatched = 0
     food_keywords = plan.food_keywords or []
     acceptable = plan.acceptable_categories or []
     for r in merged:
@@ -246,17 +246,21 @@ def aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
             if pl is not None and pl > max_price:
                 excluded_by_price += 1
                 continue
-        # 음식 종류 mismatch 강제 차단 — "중국집" 요청에 vietnamese_restaurant이
-        # 평점/리뷰 가중치 때문에 top-1로 올라오는 케이스 방지.
+        # 음식 종류 mismatch — soft penalty. LLM이 acceptable_categories를
+        # 빠뜨려도 정당한 후보가 살아남도록 hard cutoff 대신 score를 강하게 깎음.
+        # 명백한 mismatch (베트남집이 중식 쿼리에 끼는 등)는 페널티로도 top-k 밖.
         if not _category_matches_keywords(r.get("category"), food_keywords,
                                             acceptable):
-            excluded_by_mismatch += 1
-            continue
+            r["_mismatch"] = True
+            mismatched += 1
         filtered.append(r)
 
     # score + sort
     for r in filtered:
-        r["score"] = _score(r, weights)
+        s = _score(r, weights)
+        if r.pop("_mismatch", False):
+            s *= 0.4
+        r["score"] = s
     filtered.sort(key=lambda r: r["score"], reverse=True)
 
     top_k = filtered[: plan.post_filters.k]
@@ -269,7 +273,7 @@ def aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
             "excluded_by_category": excluded_by_category,
             "excluded_by_recency": excluded_by_recency,
             "excluded_by_price": excluded_by_price,
-            "excluded_by_mismatch": excluded_by_mismatch,
+            "mismatched_penalized": mismatched,
             "kept": len(top_k),
         }],
     }
