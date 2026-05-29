@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from typing import Any
 
@@ -40,10 +41,28 @@ def fetch_menu_from_naver(name: str, address_hint: str = "",
     query = f"{name} {address_hint.split()[0] if address_hint else ''}".strip()
 
     with sync_playwright() as p:
-        try:
-            browser = p.chromium.launch(headless=True)
-        except Exception as e:  # noqa: BLE001
-            logger.warning("Playwright Chromium 실행 실패: %s", e)
+        # Ubuntu 26.04 등에서 Playwright 자체 Chromium 설치가 불가하면
+        # 시스템에 깔린 google-chrome을 우선 사용.
+        custom_path = os.getenv("PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH")
+        launch_attempts = []
+        if custom_path and os.path.exists(custom_path):
+            launch_attempts.append({"executable_path": custom_path,
+                                     "args": ["--no-sandbox"]})
+        # system Chrome auto-detection
+        launch_attempts.append({"channel": "chrome", "args": ["--no-sandbox"]})
+        # default Playwright Chromium
+        launch_attempts.append({})
+
+        browser = None
+        for kwargs in launch_attempts:
+            try:
+                browser = p.chromium.launch(headless=True, **kwargs)
+                break
+            except Exception as e:  # noqa: BLE001
+                logger.debug("launch attempt %s failed: %s", kwargs, e)
+                continue
+        if browser is None:
+            logger.warning("Playwright Chromium 실행 실패 — 모든 fallback 소진")
             return []
 
         try:
