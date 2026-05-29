@@ -159,15 +159,23 @@ def render_trace_md(*, query: str, final_text: str,
             "",
             f"## 6. Aggregated (dedup + score + filter 후 top {len(aggregated)})",
             "",
-            "| # | Name | Score | Sources | Rating | Reviews | Price |",
-            "|--|--|--|--|--|--|--|",
+            "| # | Name | Score | Sources | Rating | Reviews | Price | Menu items |",
+            "|--|--|--|--|--|--|--|--|",
         ]
         for i, a in enumerate(aggregated, 1):
+            items = a.get("menu_items") or []
+            if items:
+                menu_str = ", ".join(f"{m['name']}({m['price']})"
+                                       for m in items[:3])
+                if len(items) > 3:
+                    menu_str += f" +{len(items)-3}"
+            else:
+                menu_str = "-"
             lines.append(
                 f"| {i} | {a.get('name', '?')} | "
                 f"{a.get('score', 0):.4f} | {a.get('source_count', 1)} | "
                 f"{a.get('rating', '-')} | {a.get('review_count', '-')} | "
-                f"{a.get('price_level', '-')} |"
+                f"{a.get('price_level', '-')} | {menu_str} |"
             )
 
     # Final 추천

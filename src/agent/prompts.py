@@ -32,6 +32,8 @@ PLANNER_SYSTEM = """\
     google.price_levels=["PRICE_LEVEL_INEXPENSIVE"], post_filters.max_price_level=1
 - "만오천원/2만원 이하/너무 비싸지 않게/적당한" →
     google.price_levels=["PRICE_LEVEL_INEXPENSIVE","PRICE_LEVEL_MODERATE"], post_filters.max_price_level=2
+  **사용자가 "N만원 이하" 같은 가격 상한을 명시하면 max_price_level은 반드시 같이 채워라**
+  (google.price_levels만 채우고 max_price_level=null은 hard cutoff 누락이라 금지).
 - "3만원/조금 좋은/괜찮은" →
     google.price_levels=["PRICE_LEVEL_MODERATE","PRICE_LEVEL_EXPENSIVE"], post_filters.max_price_level=3
 - "4만원 이상/고급/특별한 날/럭셔리/파인다이닝" → 가격 제한 없음 (max_price_level=null)
