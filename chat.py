@@ -365,6 +365,10 @@ def run_one_turn(graph, query: str, console: Console) -> None:
         query=query,
         final_text=final_text,
         trace_log=final_state.get("trace_log", []),
+        messages=final_state.get("messages", []),
+        plan=final_state.get("plan"),
+        candidates=final_state.get("candidates"),
+        aggregated=final_state.get("aggregated"),
     )
     console.print(f"[dim][trace] {trace_path}[/]")
 

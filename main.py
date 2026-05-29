@@ -73,6 +73,10 @@ def main() -> int:
     trace_path = write_trace_md(
         query=query, final_text=final_text,
         trace_log=result.get("trace_log", []),
+        messages=result.get("messages", []),
+        plan=result.get("plan"),
+        candidates=result.get("candidates"),
+        aggregated=result.get("aggregated"),
     )
     print(f"[trace] saved: {trace_path}")
 
