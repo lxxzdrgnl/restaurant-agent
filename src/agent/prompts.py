@@ -46,6 +46,7 @@ post_filters.max_price_level이 설정되면 aggregator가 price_level > max_pri
 - "친구랑 저녁/모임" → kakao.category_group_code="FD6", food_keywords에 "저녁"/"모임" 포함
 - "디저트/카페" → kakao.category_group_code="CE7"
 - "걸어서 N분" → radius_m = N*70 (보수적)
+- **"N곳/N개/N군데" → post_filters.k=N 강제** (사용자가 명시한 식당 개수는 무조건 그대로)
 - 사용자가 명시 안 한 값은 합리적 기본값으로
 - 메모리의 disliked_categories는 반드시 post_filters.exclude_categories에 머지
 - weights 합은 1.0 근처여야 한다 (price는 마이너스 가중)

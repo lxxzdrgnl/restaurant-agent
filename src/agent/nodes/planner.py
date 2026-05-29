@@ -81,6 +81,21 @@ def planner_node(state: dict[str, Any], *, llm) -> dict[str, Any]:
     # → 토큰/시간 낭비. region이 있으면 무조건 geocode 먼저 부르도록 강제.
     if region.strip():
         plan_dict["needs_geocoding"] = True
+
+    # ── 코드 가드: user query에 "N곳/N개/N군데" 명시 → post_filters.k 강제 ──
+    # LLM이 깜빡해도 코드가 잡음. 식당 개수는 사용자 의도가 가장 명확.
+    import re
+    m = re.search(
+        r"(\d+)\s*(?:곳|개|군데|가지|가게|식당|개의)",
+        state.get("query", ""),
+    )
+    if m:
+        n = int(m.group(1))
+        if 1 <= n <= 20:
+            plan_dict["post_filters"] = {
+                **plan_dict.get("post_filters", {}), "k": n,
+            }
+
     plan = Plan.model_validate(plan_dict)
 
     # 코드 가드: user query에 (세션 허용 제외) disliked 단어가 있으면 clarification 추가
