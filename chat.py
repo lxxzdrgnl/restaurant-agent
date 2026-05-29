@@ -139,7 +139,7 @@ def render_welcome(console: Console) -> None:
         style="dim",
     )
     console.print(
-        "Model: [cyan]gpt-4o-mini[/] · type [cyan]/help[/] for commands",
+        f"Model: [cyan]{os.getenv('OPENAI_MODEL', 'gpt-4.1-mini')}[/] · type [cyan]/help[/] for commands",
         style="dim",
     )
     console.print()
@@ -380,7 +380,8 @@ def main() -> int:
 
     render_welcome(console)
 
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    model_name = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+    llm = ChatOpenAI(model=model_name, temperature=0)
     store = MemoryStore(Path("data/agent_memory.db"))
     graph = build_graph(llm=llm, store=store)
 
