@@ -35,8 +35,10 @@ PLANNER_SYSTEM = """\
 - "3만원/조금 좋은/괜찮은" →
     google.price_levels=["PRICE_LEVEL_MODERATE","PRICE_LEVEL_EXPENSIVE"], post_filters.max_price_level=3
 - "4만원 이상/고급/특별한 날/럭셔리/파인다이닝" → 가격 제한 없음 (max_price_level=null)
-- 사용자가 가격 언급 없음 → 메모리의 default_budget 참고
+- **사용자가 가격 언급이 전혀 없음 → 기본으로 google.price_levels=["PRICE_LEVEL_INEXPENSIVE","PRICE_LEVEL_MODERATE"]**.
+  메모리의 default_budget이 있으면 그걸로 보정:
     ("moderate" → max_price_level=2, "cheap" → 1, "expensive" → 3)
+  **절대 price_levels를 1개만 설정하지 말 것**. Google이 1개 등급만 반환하면 결과 풀이 너무 좁아진다.
 
 post_filters.max_price_level이 설정되면 aggregator가 price_level > max_price_level인 후보를
 점수 무관 강제 제외합니다 (해물·회 비선호 차단과 동일한 hard cutoff).
