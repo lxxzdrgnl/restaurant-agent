@@ -255,15 +255,27 @@ def aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
             mismatched += 1
         filtered.append(r)
 
-    # score + sort
+    # score + sort. mismatch 후보는 페널티 0.4× (정렬에서 자연 도태 보조).
+    normal: list[dict] = []
+    mismatched_list: list[dict] = []
     for r in filtered:
+        is_mismatch = r.pop("_mismatch", False)
         s = _score(r, weights)
-        if r.pop("_mismatch", False):
+        if is_mismatch:
             s *= 0.4
         r["score"] = s
-    filtered.sort(key=lambda r: r["score"], reverse=True)
+        (mismatched_list if is_mismatch else normal).append(r)
+    normal.sort(key=lambda r: r["score"], reverse=True)
+    mismatched_list.sort(key=lambda r: r["score"], reverse=True)
 
-    top_k = filtered[: plan.post_filters.k]
+    # Hybrid: 정상 후보가 k개 이상이면 mismatch는 전부 제외,
+    # 부족하면 부족분만 mismatch에서 채움.
+    k = plan.post_filters.k
+    top_k = normal[:k]
+    if len(top_k) < k:
+        top_k += mismatched_list[: k - len(top_k)]
+    mismatched_filled = max(0, k - len(normal))
+    mismatched_dropped = len(mismatched_list) - mismatched_filled
     return {
         "aggregated": [Restaurant.model_validate(r).model_dump() for r in top_k],
         "trace_log": state.get("trace_log", []) + [{
@@ -273,7 +285,9 @@ def aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
             "excluded_by_category": excluded_by_category,
             "excluded_by_recency": excluded_by_recency,
             "excluded_by_price": excluded_by_price,
-            "mismatched_penalized": mismatched,
+            "mismatched_total": mismatched,
+            "mismatched_filled": mismatched_filled,
+            "mismatched_dropped": mismatched_dropped,
             "kept": len(top_k),
         }],
     }
