@@ -8,6 +8,7 @@ from langgraph.graph import END, START, StateGraph
 from src.agent.nodes.aggregator import aggregator_node
 from src.agent.nodes.finalizer import finalizer_node
 from src.agent.nodes.load_memory import load_memory_node
+from src.agent.nodes.menu_enricher import menu_enricher_node
 from src.agent.nodes.planner import planner_node
 from src.agent.nodes.preference_extractor import preference_extractor_node
 from src.agent.nodes.react_agent import make_react_agent
@@ -50,6 +51,7 @@ def build_graph(
     g.add_node("planner", lambda s: planner_node(s, llm=llm))
     g.add_node("react_agent", react_node)
     g.add_node("aggregator", aggregator_node)
+    g.add_node("menu_enricher", menu_enricher_node)
     g.add_node("reflector", lambda s: reflector_node(s, llm=llm))
     g.add_node("finalizer", lambda s: finalizer_node(s, llm=llm))
     g.add_node("save_memory", lambda s: save_memory_node(s, store=store))
@@ -62,7 +64,8 @@ def build_graph(
         "proceed": "react_agent",
     })
     g.add_edge("react_agent", "aggregator")
-    g.add_edge("aggregator", "reflector")
+    g.add_edge("aggregator", "menu_enricher")
+    g.add_edge("menu_enricher", "reflector")
     g.add_conditional_edges("reflector", should_retry, {
         "retry": "react_agent",
         "finalize": "finalizer",

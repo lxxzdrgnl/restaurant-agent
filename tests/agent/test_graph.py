@@ -1,6 +1,6 @@
 """그래프 빌더 스모크 테스트: 노드/엣지 토폴로지 + 한 번 invoke 가능한지."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from src.agent.graph import build_graph
 from src.memory.store import MemoryStore
@@ -45,7 +45,8 @@ def test_graph_clarification_path_skips_react_agent(tmp_path, monkeypatch):
         MagicMock(content="⚠️ 추가 정보가 필요합니다\n\n- test clarification"),
     ]
 
-    result = graph.invoke({"query": "전주 객사 회 맛집"})
+    with patch("src.agent.nodes.menu_enricher.fetch_menu_from_naver", return_value=[]):
+        result = graph.invoke({"query": "전주 객사 회 맛집"})
     assert "final_text" in result
     assert not react_called  # react_agent never invoked
     assert result.get("final_text") is not None
@@ -90,6 +91,7 @@ def test_graph_compiles_and_invokes(tmp_path, monkeypatch):
         MagicMock(content="1. ...\n2. ...\n3. ..."),
     ]
 
-    result = graph.invoke({"query": "test"})
+    with patch("src.agent.nodes.menu_enricher.fetch_menu_from_naver", return_value=[]):
+        result = graph.invoke({"query": "test"})
     assert "final_text" in result
     assert isinstance(result.get("trace_log"), list)
