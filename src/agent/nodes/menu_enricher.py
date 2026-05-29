@@ -8,7 +8,19 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
-from src.tools.menu_crawler import fetch_menu_from_naver
+from src.tools.menu_crawler import fetch_menu_from_kakao, fetch_menu_from_naver
+
+
+def _fetch_menu(candidate: dict[str, Any]) -> list[dict[str, str]]:
+    """카카오 우선 → 빈 결과면 네이버 fallback."""
+    cid = candidate.get("id", "") or ""
+    name = candidate.get("name", "") or ""
+    addr = candidate.get("address", "") or ""
+    kakao_pid = cid[2:] if cid.startswith("k_") else None
+    items = fetch_menu_from_kakao(name, addr, place_id=kakao_pid)
+    if items:
+        return items
+    return fetch_menu_from_naver(name, addr)
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +44,7 @@ def menu_enricher_node(state: dict[str, Any]) -> dict[str, Any]:
 
     with ThreadPoolExecutor(max_workers=5) as pool:
         future_to_idx = {
-            pool.submit(
-                fetch_menu_from_naver,
-                r.get("name", ""),
-                r.get("address", "") or "",
-            ): i
+            pool.submit(_fetch_menu, r): i
             for i, r in enumerate(aggregated)
         }
         for fut in as_completed(future_to_idx, timeout=60):

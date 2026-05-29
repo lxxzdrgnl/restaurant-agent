@@ -1,5 +1,7 @@
-"""네이버 모바일 place 페이지에서 식당 메뉴 + 가격을 추출.
+"""식당 메뉴 + 가격 추출.
 
+1순위: 카카오맵 내부 panel3 API (httpx, JSON). Playwright 불필요.
+2순위: 네이버 모바일 place 페이지 (Playwright). 카카오에 등록 안 된 가게용.
 ToS 회색 영역이므로 best-effort. 실패는 빈 리스트로 fallback."""
 
 from __future__ import annotations
@@ -8,9 +10,84 @@ import json
 import logging
 import os
 import re
-from typing import Any
+from typing import Any, Optional
+
+import httpx
 
 logger = logging.getLogger(__name__)
+
+_KAKAO_PANEL_URL = "https://place-api.map.kakao.com/places/panel3/{pid}"
+_KAKAO_KEYWORD_URL = "https://dapi.kakao.com/v2/local/search/keyword.json"
+
+
+def fetch_menu_from_kakao(name: str, address_hint: str = "",
+                          place_id: Optional[str] = None,
+                          timeout_s: float = 5.0) -> list[dict[str, str]]:
+    """카카오맵 panel3 API로 메뉴 JSON 직접 호출. Playwright 불필요.
+
+    place_id가 주어지면 그대로 사용. 없으면 Kakao Local keyword search로 찾는다.
+    Returns: [{"name":"물국수","price":"5,000원"}, ...] 또는 [].
+    """
+    pid = place_id
+    if not pid:
+        api_key = os.getenv("KAKAO_REST_API_KEY")
+        if not api_key:
+            return []
+        try:
+            q = f"{name} {address_hint.split()[0] if address_hint else ''}".strip()
+            r = httpx.get(
+                _KAKAO_KEYWORD_URL,
+                params={"query": q, "size": 3,
+                         "category_group_code": "FD6"},
+                headers={"Authorization": f"KakaoAK {api_key}"},
+                timeout=timeout_s,
+            )
+            if r.status_code != 200:
+                return []
+            docs = r.json().get("documents", [])
+            if not docs:
+                return []
+            # 이름 fuzzy match — 너무 다른 가게 잡지 않게
+            target = re.sub(r"\s+", "", name)
+            best = next((d for d in docs
+                          if target and target in re.sub(r"\s+", "", d.get("place_name", ""))),
+                         docs[0])
+            pid = str(best.get("id", ""))
+        except Exception as e:  # noqa: BLE001
+            logger.debug("kakao keyword search 실패 (%s): %s", name, e)
+            return []
+    if not pid:
+        return []
+
+    try:
+        r = httpx.get(
+            _KAKAO_PANEL_URL.format(pid=pid),
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Referer": f"https://place.map.kakao.com/{pid}",
+                "pf": "web",
+            },
+            timeout=timeout_s,
+        )
+        if r.status_code != 200:
+            return []
+        items = (((r.json().get("menu") or {}).get("menus") or {}).get("items")) or []
+    except Exception as e:  # noqa: BLE001
+        logger.debug("kakao panel3 실패 (%s): %s", pid, e)
+        return []
+
+    out: list[dict[str, str]] = []
+    for it in items[:10]:
+        nm = (it.get("name") or "").strip()
+        price = it.get("price")
+        if not nm or price is None:
+            continue
+        try:
+            n = int(price)
+        except (TypeError, ValueError):
+            continue
+        out.append({"name": nm[:40], "price": f"{n:,}원"})
+    return out
 
 # Naver place_id 추출 패턴
 _PLACE_ID_RE = re.compile(r"/restaurant/(\d+)")
