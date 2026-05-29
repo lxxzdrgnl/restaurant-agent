@@ -15,7 +15,8 @@ def test_load_memory_pulls_profile_and_recent_visits(tmp_path: Path):
     assert len(out["recent_visits"]) == 1
 
 
-def test_save_memory_appends_recommendations(tmp_path: Path):
+def test_save_memory_does_not_auto_append_recommendations(tmp_path: Path):
+    """추천 결과는 실제 방문이 아니므로 visit_history에 자동 등록 안 함."""
     store = MemoryStore(tmp_path / "m.db")
     state = {
         "final_recommendation": [
@@ -24,6 +25,5 @@ def test_save_memory_appends_recommendations(tmp_path: Path):
         ],
     }
     out = save_memory_node(state, store=store)
-    assert out["trace_log"][-1]["saved"] == 2
-    visits = store.get_recent_visits(within_days=1)
-    assert {v["name"] for v in visits} == {"A", "B"}
+    assert out["trace_log"][-1]["saved"] == 0
+    assert store.get_recent_visits(within_days=1) == []

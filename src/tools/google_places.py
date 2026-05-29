@@ -39,11 +39,14 @@ def search_google_places(
     if not api_key:
         return {"error": "missing_api_key", "results": [], "count": 0}
 
+    # locationRestriction(hard) 사용 — locationBias는 weak이라 전국 단위 텍스트 매칭이
+    # 들어오면 다른 도시 결과까지 섞임("전북대 중국집" 검색에 대전·대구·광주 식당이 들어오는 케이스).
+    # restriction은 지정 반경 밖 결과를 API가 반환하지 않음.
     body: dict[str, Any] = {
         "textQuery": query,
         "languageCode": language_code,
         "includedType": included_type,
-        "locationBias": {
+        "locationRestriction": {
             "circle": {
                 "center": {"latitude": lat, "longitude": lng},
                 "radius": float(radius_m),
