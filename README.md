@@ -19,6 +19,12 @@ Model: gpt-4o-mini · type /help for commands
 
 LangGraph 기반 **ReAct 맛집 추천 에이전트**입니다. 사용자가 자연어로 맛집 추천을 요청하면, 에이전트가 Kakao · Naver · Google Places API를 병렬 호출하여 결과를 집계하고 최적의 추천을 생성합니다. 추천 결과는 Rich 콘솔, 로컬 trace 파일, Phoenix 분산 트레이싱 UI 세 곳에 동시 기록됩니다.
 
+### 실행 예시
+
+`전북대 근처 만원 이하 혼밥하기 좋은 라멘집 추천 좀` 쿼리에 대한 출력 (각 노드 진행 상황 + 카카오맵 panel3 API로 추출한 실제 메뉴/가격):
+
+![MATZIP — 라멘집 추천 예시](docs/images/demo_ramen_top3.png)
+
 ---
 
 ## 빠른 시작
