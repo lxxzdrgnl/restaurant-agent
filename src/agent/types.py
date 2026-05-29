@@ -62,6 +62,7 @@ class GoogleParams(BaseModel):
 class PostFilters(BaseModel):
     exclude_categories: list[str] = Field(default_factory=list)
     exclude_visited_within_days: int = 1
+    max_price_level: Optional[int] = None  # None이면 가격 차단 없음. 1~4면 그보다 비싼 곳은 hard exclude
     k: int = 3
 
 

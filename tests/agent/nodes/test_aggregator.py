@@ -144,3 +144,79 @@ def test_top_k_ordered_by_score():
     out = aggregator_node(state)
     assert len(out["aggregated"]) == 2
     assert out["aggregated"][0]["name"] == "B"  # 최고점
+
+
+def test_max_price_level_hard_blocks_expensive(monkeypatch):
+    """post_filters.max_price_level=2면 price_level=3,4 후보는 강제 제외."""
+    state = {
+        "plan": Plan(
+            region_query="x",
+            post_filters={
+                "exclude_categories": [], "exclude_visited_within_days": 1,
+                "max_price_level": 2, "k": 5,
+            },
+        ).model_dump(),
+        "candidates": [
+            _r(id="g_1", name="저렴한집", source="google",
+               category="한식", rating=4.0, review_count=50, price_level=1),
+            _r(id="g_2", name="적당한집", source="google",
+               category="한식", rating=4.0, review_count=50, price_level=2),
+            _r(id="g_3", name="비싼집", source="google",
+               category="한식", rating=4.9, review_count=999, price_level=3),
+            _r(id="g_4", name="고급집", source="google",
+               category="한식", rating=5.0, review_count=999, price_level=4),
+        ],
+        "recent_visits": [],
+        "user_profile": {},
+    }
+    out = aggregator_node(state)
+    names = [r["name"] for r in out["aggregated"]]
+    assert "비싼집" not in names      # rating 좋아도 강제 차단
+    assert "고급집" not in names
+    assert "저렴한집" in names
+    assert "적당한집" in names
+    assert out["trace_log"][-1]["excluded_by_price"] == 2
+
+
+def test_max_price_level_none_disables_price_filter():
+    """max_price_level=None이면 price_level 무관하게 통과 (기존 동작)."""
+    state = {
+        "plan": Plan(
+            region_query="x",
+            post_filters={
+                "exclude_categories": [], "exclude_visited_within_days": 1,
+                "max_price_level": None, "k": 5,
+            },
+        ).model_dump(),
+        "candidates": [
+            _r(id="g_1", name="비싼집", source="google",
+               category="한식", rating=4.5, review_count=999, price_level=4),
+        ],
+        "recent_visits": [],
+        "user_profile": {},
+    }
+    out = aggregator_node(state)
+    assert "비싼집" in [r["name"] for r in out["aggregated"]]
+    assert out["trace_log"][-1]["excluded_by_price"] == 0
+
+
+def test_max_price_level_passes_candidates_with_no_price_info():
+    """price_level=None인 후보(kakao/naver)는 정보 부재라 차단하지 않음."""
+    state = {
+        "plan": Plan(
+            region_query="x",
+            post_filters={
+                "exclude_categories": [], "exclude_visited_within_days": 1,
+                "max_price_level": 2, "k": 5,
+            },
+        ).model_dump(),
+        "candidates": [
+            _r(id="k_1", name="가격불명", source="kakao",
+               category="한식", rating=4.0, price_level=None),
+        ],
+        "recent_visits": [],
+        "user_profile": {},
+    }
+    out = aggregator_node(state)
+    assert "가격불명" in [r["name"] for r in out["aggregated"]]
+    assert out["trace_log"][-1]["excluded_by_price"] == 0

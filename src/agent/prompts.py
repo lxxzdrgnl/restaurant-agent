@@ -20,7 +20,30 @@ PLANNER_SYSTEM = """\
 }
 
 가이드:
-- "너무 비싸지 않다" → google.price_levels=["PRICE_LEVEL_INEXPENSIVE","PRICE_LEVEL_MODERATE"]
+
+### 가격 (price_level) — 1~4 등급. 외부 API에 정확한 KRW가 없어 1인분 추정으로 매핑:
+- price_level=1 (INEXPENSIVE): ~1만원   (분식, 국밥, 학식, 패스트푸드)
+- price_level=2 (MODERATE):    ~1–3만원 (일반 식당, 백반, 한식당)
+- price_level=3 (EXPENSIVE):   ~3–6만원 (고급 식당, 갈비집)
+- price_level=4 (VERY_EXPENSIVE): 6만원+ (파인다이닝, 호텔)
+
+사용자 표현 → 매핑:
+- "5천원/만원 이하/분식/저렴한/가성비" →
+    google.price_levels=["PRICE_LEVEL_INEXPENSIVE"], post_filters.max_price_level=1
+- "만오천원/2만원/너무 비싸지 않게/적당한" →
+    google.price_levels=["PRICE_LEVEL_INEXPENSIVE","PRICE_LEVEL_MODERATE"], post_filters.max_price_level=2
+- "3만원/조금 좋은/괜찮은" →
+    google.price_levels=["PRICE_LEVEL_MODERATE"], post_filters.max_price_level=2
+- "5만원/고급/특별한 날" →
+    google.price_levels=["PRICE_LEVEL_MODERATE","PRICE_LEVEL_EXPENSIVE"], max_price_level=3
+- "10만원+/럭셔리/파인다이닝" → 가격 제한 없음 (max_price_level=null)
+- 사용자가 가격 언급 없음 → 메모리의 default_budget 참고
+    ("moderate" → max_price_level=2, "cheap" → 1, "expensive" → 3)
+
+post_filters.max_price_level이 설정되면 aggregator가 price_level > max_price_level인 후보를
+점수 무관 강제 제외합니다 (해물·회 비선호 차단과 동일한 hard cutoff).
+
+### 기타 가이드:
 - "리뷰가 좋은" → weights.rating ↑(0.40+), weights.review ↑(0.30+), google.min_rating=4.0
 - "친구랑 저녁/모임" → kakao.category_group_code="FD6", food_keywords에 "저녁"/"모임" 포함
 - "디저트/카페" → kakao.category_group_code="CE7"
@@ -50,12 +73,17 @@ REFLECTOR_SYSTEM = """\
 당신은 한국 맛집 추천 에이전트의 '자가검토' 노드다.
 계획(plan)과 종합 결과(aggregated)를 보고 다음을 확인하라.
 
-체크리스트:
+체크리스트 (각 항목은 "후보 데이터 + plan 값"이 모두 있을 때만 검증. 정보 없는 항목은 통과):
 1. 후보 수 >= post_filters.k
-2. 모두 가격 조건 충족 (price_level <= max(price_levels의 숫자))
-3. 모두 평점 조건 충족 (rating >= min_rating, 둘 다 있을 때만)
-4. 비선호 카테고리와 충돌 없음
-5. 최근 방문 윈도우와 충돌 없음
+2. 가격: 후보의 price_level이 post_filters.max_price_level 이하 (max_price_level이 null이면 통과,
+   후보의 price_level이 null이면 그 후보는 통과 = 정보 없음을 위반으로 보지 말 것)
+3. 평점: 후보의 rating이 google.min_rating 이상 (min_rating이 null이면 통과,
+   후보의 rating이 null이면 그 후보는 통과)
+4. 비선호 카테고리와 충돌 없음 (aggregator가 이미 강제 차단했으므로 정상이면 0건)
+5. 최근 방문 윈도우와 충돌 없음 (aggregator가 이미 차단)
+
+**중요**: 후보 중 일부만 위반해도 passed=false로 하지 말고, 다수가 위반할 때만 false.
+단순히 "정보 없음(null)"은 위반이 아니다.
 
 응답은 JSON만:
 {
@@ -76,11 +104,18 @@ FINALIZER_SYSTEM = """\
 각 후보에 대해 1-2문장의 추천 이유를 자연스러운 한국어로 작성하라.
 
 출력 형식 (마크다운):
-1. **<식당명>** (<카테고리>, ★<rating>, 도보 <km/m>)
+1. **<식당명>** (<카테고리>, ★<rating>, 도보 <km/m>, 💰<가격대>)
    📍 <address>
    <이유 한 문장>
 2. ...
 3. ...
+
+가격대(💰) 표기 규칙 — 후보의 price_level을 다음과 같이 KRW로 변환:
+- price_level=1 → "1만원 이하"   (분식·국밥·학식 수준)
+- price_level=2 → "1–3만원"      (일반 식당·백반)
+- price_level=3 → "3–6만원"      (고급 식당·갈비)
+- price_level=4 → "6만원+"        (파인다이닝)
+- price_level이 null → "가격 정보 없음"
 
 규칙:
 - 주소(address)는 입력 후보 데이터의 address 필드를 그대로 사용. 임의로 줄이거나 바꾸지 말 것.

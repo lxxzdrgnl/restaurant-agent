@@ -152,9 +152,11 @@ def aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
     recent = state.get("recent_visits", [])
     now = datetime.now()
     window = plan.post_filters.exclude_visited_within_days
+    max_price = plan.post_filters.max_price_level  # None이면 가격 차단 없음
     filtered = []
     excluded_by_recency = 0
     excluded_by_category = 0
+    excluded_by_price = 0
     for r in merged:
         if r.get("category") in user_dislikes:
             excluded_by_category += 1
@@ -162,6 +164,13 @@ def aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
         if _is_recently_visited(r["name"], recent, window_days=window, now=now):
             excluded_by_recency += 1
             continue
+        # 가격 강제 차단 — price_level 정보가 있고 max_price를 초과하면 제외.
+        # 정보 없는 후보(None)는 통과 (false negative 방지: 정보가 없을 뿐 비싸다는 증거 X).
+        if max_price is not None:
+            pl = r.get("price_level")
+            if pl is not None and pl > max_price:
+                excluded_by_price += 1
+                continue
         filtered.append(r)
 
     # score + sort
@@ -178,6 +187,7 @@ def aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
             "merged_count": len(merged),
             "excluded_by_category": excluded_by_category,
             "excluded_by_recency": excluded_by_recency,
+            "excluded_by_price": excluded_by_price,
             "kept": len(top_k),
         }],
     }

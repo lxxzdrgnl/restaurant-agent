@@ -194,6 +194,22 @@ score = w_rating   · normalize(rating)
       + w_distance · (1 / (distance_m + 1))   # 가까울수록 ↑
       + w_match    · (source_count / 3)        # 여러 API 동시 등장 → 신뢰 보너스
       - w_price    · price_level               # 가격대 (마이너스 가중)
+
+#### 가격대(`price_level`) — 1~4 등급 ↔ KRW 매핑
+
+외부 API에는 정확한 가격 정보가 없습니다 (Google Places가 1~4 추상 등급만 제공, Kakao·Naver는 가격 정보 없음). planner와 finalizer가 사용하는 매핑:
+
+| price_level | Google 표기 | 대략 1인분 KRW | 예시 |
+|---|---|---|---|
+| 1 | `INEXPENSIVE`      | **~1만원 이하** | 분식, 국밥, 학식, 패스트푸드 |
+| 2 | `MODERATE`         | **~1–3만원**    | 일반 식당, 백반, 한식당 |
+| 3 | `EXPENSIVE`        | **~3–6만원**    | 고급 식당, 갈비집 |
+| 4 | `VERY_EXPENSIVE`   | **6만원+**      | 파인다이닝, 호텔 |
+
+- planner LLM이 사용자 KRW 표현(예: "만오천원 이하")을 위 등급으로 변환해 `post_filters.max_price_level`에 설정합니다.
+- `aggregator`가 `price_level > max_price_level`인 후보를 점수 무관 **강제 제외** (해물·회 비선호 차단과 동일한 hard cutoff).
+- `finalizer`가 추천 출력에 KRW 추정값을 함께 표기 (예: "💰 1–3만원").
+- 후보의 `price_level`이 `null`인 경우(Kakao·Naver) 차단하지 않고 통과 — 정보 부재를 위반으로 간주하지 않음.
 ```
 
 ### 4-3. 가중치 기본값
