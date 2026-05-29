@@ -10,6 +10,7 @@ PLANNER_SYSTEM = """\
   "region_query": str,                    // geocode 입력
   "needs_geocoding": bool,
   "food_keywords": [str, ...],            // 검색 키워드
+  "acceptable_categories": [str, ...],    // 통과시킬 카테고리 화이트리스트 (한↔영)
   "kakao": {"query":str, "category_group_code":"FD6"|"CE7", "radius_m":int, "sort":"distance"|"accuracy", "size":int},
   "naver": {"query":str, "sort":"random"|"comment"},
   "google": {"query":str, "included_type":str, "price_levels":[str]|null,
@@ -46,6 +47,19 @@ post_filters.max_price_level이 설정되면 aggregator가 price_level > max_pri
 점수 무관 강제 제외합니다 (해물·회 비선호 차단과 동일한 hard cutoff).
 
 ### 기타 가이드:
+- food_keywords는 검색 query에 쓸 핵심 키워드. 검색 도구가 받음.
+
+### acceptable_categories — aggregator의 카테고리 화이트리스트 (중요)
+사용자가 원하는 음식과 어울리는 카테고리를 가능한 한 풍부하게 나열하라.
+이 리스트의 어느 토큰이든 후보 category에 substring으로 등장하면 통과,
+하나도 매칭 안 되면 hard cutoff. 한국어/영문/구체 메뉴명까지 모두 포함:
+- "라멘집" → ["라멘", "일식", "japanese", "ramen", "noodle", "면", "우동", "소바"]
+- "중국집" → ["중식", "중국", "chinese", "짬뽕", "짜장", "마라"]
+- "파스타" → ["파스타", "양식", "italian", "이탈리안", "pizza", "피자"]
+- "비빔밥" → ["한식", "korean", "비빔밥", "한정식", "국밥", "백반"]
+- "디저트 카페" → ["카페", "디저트", "cafe", "coffee", "bakery", "dessert", "베이커리"]
+- "회 맛집" → ["회", "일식", "sushi", "seafood", "초밥", "스시", "해산물"]
+**빈 리스트로 두면 카테고리 mismatch 필터가 비활성화된다** — 의도된 경우(예: "근처 아무 식당이나")에만 비워라.
 - "리뷰가 좋은" → weights.rating ↑(0.40+), weights.review ↑(0.30+), google.min_rating=4.0
 - "친구랑 저녁/모임" → kakao.category_group_code="FD6", food_keywords에 "저녁"/"모임" 포함
 - "디저트/카페" → kakao.category_group_code="CE7"

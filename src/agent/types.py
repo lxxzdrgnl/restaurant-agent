@@ -70,6 +70,10 @@ class Plan(BaseModel):
     region_query: str
     needs_geocoding: bool = True
     food_keywords: list[str] = Field(default_factory=list)   # ex: ["저녁", "한식"]
+    # planner가 채우는 통과 카테고리 화이트리스트. aggregator는 후보 category가
+    # 이 리스트의 어느 토큰과도 substring 매칭 안 되면 mismatch로 차단.
+    # 비어있으면 mismatch 필터 자체를 비활성화 (전후 호환).
+    acceptable_categories: list[str] = Field(default_factory=list)
     kakao: KakaoParams = Field(default_factory=KakaoParams)
     naver: NaverParams = Field(default_factory=NaverParams)
     google: GoogleParams = Field(default_factory=GoogleParams)

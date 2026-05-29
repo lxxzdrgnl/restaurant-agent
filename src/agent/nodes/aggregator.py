@@ -19,41 +19,76 @@ from src.agent.types import (
 _PAREN_RE = re.compile(r"[\(\[].*?[\)\]]")
 _PUNCT_RE = re.compile(r"[·\-,./]+")
 
-# 한국어 음식 키워드 → Google Places의 영문 카테고리 substring
+# 음식 키워드 → 매칭 alias (한국어 카테고리 + 영문 카테고리 substring).
+# 구체 메뉴 키도 상위 카테고리를 포함시켜, 사용자가 "라멘"만 적어도
+# 카카오의 "일식" 카테고리에 등록된 후보가 mismatch로 잘못 차단되지 않게 함.
 _CATEGORY_ALIASES: dict[str, list[str]] = {
+    # 상위 카테고리
     "중식": ["chinese"], "중국": ["chinese"], "중국집": ["chinese"],
     "한식": ["korean"],
     "일식": ["japanese", "sushi", "ramen"],
     "양식": ["italian", "western", "european", "american"],
-    "이탈리안": ["italian"], "파스타": ["italian"], "피자": ["pizza"],
-    "베트남": ["vietnamese"], "쌀국수": ["vietnamese"],
-    "태국": ["thai"], "인도": ["indian"], "멕시칸": ["mexican"],
+    "이탈리안": ["italian"],
+    "베트남": ["vietnamese"], "태국": ["thai"], "인도": ["indian"],
+    "멕시칸": ["mexican"],
     "분식": ["snack"], "치킨": ["chicken"], "햄버거": ["hamburger", "burger"],
     "카페": ["cafe", "coffee"],
     "디저트": ["dessert", "bakery", "cake", "pastry"],
-    "회": ["sushi", "seafood"], "해물": ["seafood"], "스시": ["sushi"],
-    "라면": ["ramen"], "고기": ["barbecue", "grill"], "갈비": ["barbecue"],
+    "해물": ["seafood"], "회": ["sushi", "seafood"],
+    "고기": ["barbecue", "grill"],
+    # 구체 메뉴 → 상위 카테고리 + 영문 alias
+    "라멘": ["일식", "japanese", "ramen"],
+    "라면": ["일식", "japanese", "ramen"],
+    "마라탕": ["중식", "chinese"],
+    "짬뽕": ["중식", "chinese"],
+    "짜장": ["중식", "chinese"], "짜장면": ["중식", "chinese"],
+    "탕수육": ["중식", "chinese"],
+    "스시": ["일식", "japanese", "sushi"],
+    "초밥": ["일식", "japanese", "sushi"],
+    "돈가스": ["일식", "japanese"], "돈까스": ["일식", "japanese"],
+    "우동": ["일식", "japanese"],
+    "소바": ["일식", "japanese"],
+    "쌀국수": ["베트남", "vietnamese"],
+    "파스타": ["양식", "italian"],
+    "피자": ["양식", "italian", "pizza"],
+    "스테이크": ["양식", "western", "steak"],
+    "비빔밥": ["한식", "korean"],
+    "갈비": ["한식", "korean", "barbecue"],
+    "삼겹살": ["한식", "korean", "barbecue"],
+    "냉면": ["한식", "korean"],
+    "국밥": ["한식", "korean"],
+    "찌개": ["한식", "korean"],
+    "백반": ["한식", "korean"],
+    "김밥": ["분식", "한식", "korean"],
+    "떡볶이": ["분식", "한식", "korean"],
 }
 # 너무 generic해서 mismatch 판정에서 제외할 카테고리
 _GENERIC_CATEGORIES = {"음식점", "restaurant", "food", ""}
 
 
 def _category_matches_keywords(category: str | None,
-                                keywords: list[str]) -> bool:
-    """plan.food_keywords가 있으면 후보 category와 (한국어 substring 또는 영문 alias) 매칭.
-    keywords가 비어있거나 category가 generic이면 통과."""
-    if not keywords:
-        return True
+                                keywords: list[str],
+                                acceptable: list[str] | None = None) -> bool:
+    """후보 category가 acceptable_categories 또는 food_keywords와 매칭되는지.
+
+    - acceptable이 비어있지 않으면 그것만 사용 (planner가 LLM으로 결정한 화이트리스트).
+    - acceptable이 비어있으면 keywords + 내장 _CATEGORY_ALIASES로 fallback.
+    - generic 카테고리("음식점"/"restaurant")는 항상 통과.
+    """
     cat = (category or "").lower().strip()
     if cat in _GENERIC_CATEGORIES:
         return True
-    for kw in keywords:
-        kw_lo = kw.lower().strip()
-        if kw_lo and kw_lo in cat:
+    tokens = list(acceptable or [])
+    if not tokens:
+        if not keywords:
             return True
-        for alias in _CATEGORY_ALIASES.get(kw, []):
-            if alias in cat:
-                return True
+        tokens = list(keywords)
+        for kw in keywords:
+            tokens.extend(_CATEGORY_ALIASES.get(kw, []))
+    for tok in tokens:
+        t = tok.lower().strip()
+        if t and t in cat:
+            return True
     return False
 
 
@@ -196,6 +231,7 @@ def aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
     excluded_by_price = 0
     excluded_by_mismatch = 0
     food_keywords = plan.food_keywords or []
+    acceptable = plan.acceptable_categories or []
     for r in merged:
         if r.get("category") in user_dislikes:
             excluded_by_category += 1
@@ -212,7 +248,8 @@ def aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
                 continue
         # 음식 종류 mismatch 강제 차단 — "중국집" 요청에 vietnamese_restaurant이
         # 평점/리뷰 가중치 때문에 top-1로 올라오는 케이스 방지.
-        if not _category_matches_keywords(r.get("category"), food_keywords):
+        if not _category_matches_keywords(r.get("category"), food_keywords,
+                                            acceptable):
             excluded_by_mismatch += 1
             continue
         filtered.append(r)
