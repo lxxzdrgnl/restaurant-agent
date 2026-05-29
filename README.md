@@ -201,10 +201,10 @@ score = w_rating   · normalize(rating)
 
 | price_level | Google 표기 | 대략 1인분 KRW | 예시 |
 |---|---|---|---|
-| 1 | `INEXPENSIVE`      | **~1만원 이하** | 분식, 국밥, 학식, 패스트푸드 |
-| 2 | `MODERATE`         | **~1–3만원**    | 일반 식당, 백반, 한식당 |
-| 3 | `EXPENSIVE`        | **~3–6만원**    | 고급 식당, 갈비집 |
-| 4 | `VERY_EXPENSIVE`   | **6만원+**      | 파인다이닝, 호텔 |
+| 1 | `INEXPENSIVE`      | **1만원 이하**    | 분식, 국밥, 학식, 패스트푸드 |
+| 2 | `MODERATE`         | **1–2만원**       | 일반 식당, 백반, 한식당 |
+| 3 | `EXPENSIVE`        | **2–4만원**       | 고급 식당, 갈비집 |
+| 4 | `VERY_EXPENSIVE`   | **4만원 이상**    | 파인다이닝, 호텔 |
 
 - planner LLM이 사용자 KRW 표현(예: "만오천원 이하")을 위 등급으로 변환해 `post_filters.max_price_level`에 설정합니다.
 - `aggregator`가 `price_level > max_price_level`인 후보를 점수 무관 **강제 제외** (해물·회 비선호 차단과 동일한 hard cutoff).

@@ -22,21 +22,19 @@ PLANNER_SYSTEM = """\
 가이드:
 
 ### 가격 (price_level) — 1~4 등급. 외부 API에 정확한 KRW가 없어 1인분 추정으로 매핑:
-- price_level=1 (INEXPENSIVE): ~1만원   (분식, 국밥, 학식, 패스트푸드)
-- price_level=2 (MODERATE):    ~1–3만원 (일반 식당, 백반, 한식당)
-- price_level=3 (EXPENSIVE):   ~3–6만원 (고급 식당, 갈비집)
-- price_level=4 (VERY_EXPENSIVE): 6만원+ (파인다이닝, 호텔)
+- price_level=1 (INEXPENSIVE):    1만원 이하    (분식, 국밥, 학식, 패스트푸드)
+- price_level=2 (MODERATE):       1만원 ~ 2만원 (일반 식당, 백반)
+- price_level=3 (EXPENSIVE):      2만원 ~ 4만원 (고급 식당, 갈비집)
+- price_level=4 (VERY_EXPENSIVE): 4만원 이상    (파인다이닝, 호텔)
 
 사용자 표현 → 매핑:
 - "5천원/만원 이하/분식/저렴한/가성비" →
     google.price_levels=["PRICE_LEVEL_INEXPENSIVE"], post_filters.max_price_level=1
-- "만오천원/2만원/너무 비싸지 않게/적당한" →
+- "만오천원/2만원 이하/너무 비싸지 않게/적당한" →
     google.price_levels=["PRICE_LEVEL_INEXPENSIVE","PRICE_LEVEL_MODERATE"], post_filters.max_price_level=2
 - "3만원/조금 좋은/괜찮은" →
-    google.price_levels=["PRICE_LEVEL_MODERATE"], post_filters.max_price_level=2
-- "5만원/고급/특별한 날" →
-    google.price_levels=["PRICE_LEVEL_MODERATE","PRICE_LEVEL_EXPENSIVE"], max_price_level=3
-- "10만원+/럭셔리/파인다이닝" → 가격 제한 없음 (max_price_level=null)
+    google.price_levels=["PRICE_LEVEL_MODERATE","PRICE_LEVEL_EXPENSIVE"], post_filters.max_price_level=3
+- "4만원 이상/고급/특별한 날/럭셔리/파인다이닝" → 가격 제한 없음 (max_price_level=null)
 - 사용자가 가격 언급 없음 → 메모리의 default_budget 참고
     ("moderate" → max_price_level=2, "cheap" → 1, "expensive" → 3)
 
@@ -111,10 +109,10 @@ FINALIZER_SYSTEM = """\
 3. ...
 
 가격대(💰) 표기 규칙 — 후보의 price_level을 다음과 같이 KRW로 변환:
-- price_level=1 → "1만원 이하"   (분식·국밥·학식 수준)
-- price_level=2 → "1–3만원"      (일반 식당·백반)
-- price_level=3 → "3–6만원"      (고급 식당·갈비)
-- price_level=4 → "6만원+"        (파인다이닝)
+- price_level=1 → "1만원 이하"     (분식·국밥·학식 수준)
+- price_level=2 → "1–2만원"        (일반 식당·백반)
+- price_level=3 → "2–4만원"        (고급 식당·갈비)
+- price_level=4 → "4만원 이상"     (파인다이닝)
 - price_level이 null → "가격 정보 없음"
 
 규칙:
