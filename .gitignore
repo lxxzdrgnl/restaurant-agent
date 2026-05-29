@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# uv
+.uv/
+
+# Environment & secrets
+.env
+.env.local
+*.local
+
+# Data / runtime artifacts
+data/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Notes:
+# - docs/traces/ is intentionally tracked (제출용 실행 결과)
+
+# 원본 과제 명세 (로컬 참고용, 깃 추적 제외)
+spec.md
