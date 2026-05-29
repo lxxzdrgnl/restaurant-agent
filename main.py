@@ -49,7 +49,8 @@ def main() -> int:
 
     announce_query(query)
 
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    model_name = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+    llm = ChatOpenAI(model=model_name, temperature=0)
     store = MemoryStore(Path("data/agent_memory.db"))
     graph = build_graph(llm=llm, store=store)
 
