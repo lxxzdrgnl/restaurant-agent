@@ -19,6 +19,43 @@ from src.agent.types import (
 _PAREN_RE = re.compile(r"[\(\[].*?[\)\]]")
 _PUNCT_RE = re.compile(r"[·\-,./]+")
 
+# 한국어 음식 키워드 → Google Places의 영문 카테고리 substring
+_CATEGORY_ALIASES: dict[str, list[str]] = {
+    "중식": ["chinese"], "중국": ["chinese"], "중국집": ["chinese"],
+    "한식": ["korean"],
+    "일식": ["japanese", "sushi", "ramen"],
+    "양식": ["italian", "western", "european", "american"],
+    "이탈리안": ["italian"], "파스타": ["italian"], "피자": ["pizza"],
+    "베트남": ["vietnamese"], "쌀국수": ["vietnamese"],
+    "태국": ["thai"], "인도": ["indian"], "멕시칸": ["mexican"],
+    "분식": ["snack"], "치킨": ["chicken"], "햄버거": ["hamburger", "burger"],
+    "카페": ["cafe", "coffee"],
+    "디저트": ["dessert", "bakery", "cake", "pastry"],
+    "회": ["sushi", "seafood"], "해물": ["seafood"], "스시": ["sushi"],
+    "라면": ["ramen"], "고기": ["barbecue", "grill"], "갈비": ["barbecue"],
+}
+# 너무 generic해서 mismatch 판정에서 제외할 카테고리
+_GENERIC_CATEGORIES = {"음식점", "restaurant", "food", ""}
+
+
+def _category_matches_keywords(category: str | None,
+                                keywords: list[str]) -> bool:
+    """plan.food_keywords가 있으면 후보 category와 (한국어 substring 또는 영문 alias) 매칭.
+    keywords가 비어있거나 category가 generic이면 통과."""
+    if not keywords:
+        return True
+    cat = (category or "").lower().strip()
+    if cat in _GENERIC_CATEGORIES:
+        return True
+    for kw in keywords:
+        kw_lo = kw.lower().strip()
+        if kw_lo and kw_lo in cat:
+            return True
+        for alias in _CATEGORY_ALIASES.get(kw, []):
+            if alias in cat:
+                return True
+    return False
+
 
 def _normalize_name(name: str) -> str:
     """공백/괄호 부속어/구두점 제거 후 NFKC 정규화."""
@@ -157,6 +194,8 @@ def aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
     excluded_by_recency = 0
     excluded_by_category = 0
     excluded_by_price = 0
+    excluded_by_mismatch = 0
+    food_keywords = plan.food_keywords or []
     for r in merged:
         if r.get("category") in user_dislikes:
             excluded_by_category += 1
@@ -171,6 +210,11 @@ def aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
             if pl is not None and pl > max_price:
                 excluded_by_price += 1
                 continue
+        # 음식 종류 mismatch 강제 차단 — "중국집" 요청에 vietnamese_restaurant이
+        # 평점/리뷰 가중치 때문에 top-1로 올라오는 케이스 방지.
+        if not _category_matches_keywords(r.get("category"), food_keywords):
+            excluded_by_mismatch += 1
+            continue
         filtered.append(r)
 
     # score + sort
@@ -188,6 +232,7 @@ def aggregator_node(state: dict[str, Any]) -> dict[str, Any]:
             "excluded_by_category": excluded_by_category,
             "excluded_by_recency": excluded_by_recency,
             "excluded_by_price": excluded_by_price,
+            "excluded_by_mismatch": excluded_by_mismatch,
             "kept": len(top_k),
         }],
     }
